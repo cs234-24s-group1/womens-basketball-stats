@@ -1,7 +1,7 @@
 import java.util.ArrayList;
 
-/*
- * Represents a roster of players.
+/**
+ * Represents a roster of players
  */
 public class Roster {
     ArrayList<Player> roster;
@@ -10,27 +10,39 @@ public class Roster {
         roster = new ArrayList<Player>();
     }
     
-    /*
-     * adds a player to the roster
+    /**
+     * Adds a player to the roster.
+     *
+     * @param name     the name of the player
+     * @param position the position of the player
+     * @param number   the number of the player
      */
     public void addPlayer(String name, String position, int number){
-        Player player = new Player(name, position, number);
-        roster.add(player);
+        roster.add(new Player(name, position, number));
     }
 
-    /*
-     * removes a player from the roster
+    /**
+     * Removes a player from the roster.
+     *
+     * @param player the player to be removed
      */
     public void removePlayer(Player player){
         roster.remove(player);
     }
 
-    /*
-     * returns the roster
+    /**
+     * Retrieves a player from the roster by their name.
+     *
+     * @param name the name of the player
+     * @return the player with the specified name, or null if not found
      */
-    public void getRoster(){
-
+    public Player getPlayerByName(String name){
+        for (Player player : roster){
+            if (player.getName().equals(name)){
+                return player;
+            }
         }
+        return null;
     }
 
-
+}
