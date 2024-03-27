@@ -193,7 +193,31 @@ public class DBTableManager implements RosterDataManager {
                 System.out.println("Player with ID " + playerID + " not found.");
             }
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            System.err.println(e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the ID of a player from the database.
+     * @param player the Player object to retrieve the ID for
+     * @return the ID of the player if found, -1 otherwise
+     */
+    public int getPlayerID(Player player) {
+        String sql = "SELECT id FROM Players WHERE playerName = ? AND position = ? AND playerNum = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, player.getName());
+            pstmt.setString(2, player.getPosition());
+            pstmt.setInt(3, player.getNumber());
+            //pstmt.setString(4, player.getSeniority());
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("id");
+            }
+            return -1;
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
+            return -1;
         }
     }
 
