@@ -32,6 +32,7 @@ public class DBTableManager implements RosterDataManager {
     /**
      * Retrieves a player from the database based on the specified ID.
      * @author Alan
+     * @Author JP
      * @param ID the ID of the player to retrieve
      * @return the Player object if found, null otherwise
      */
@@ -42,11 +43,13 @@ public class DBTableManager implements RosterDataManager {
             pstmt.setInt(1, ID);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                return new Player(
+                Player player = new Player(
                         rs.getString("playerName"),
                         rs.getString("position"),
-                        rs.getInt("playerNum")
-                );
+                        rs.getInt("playerNum"),
+                        rs.getInt("classYear"));
+                player.setPlaying(rs.getInt("playerActivity") == 1);
+                return player;
             }
         } catch (SQLException e) {
             System.out.println(e.getMessage());
@@ -62,12 +65,13 @@ public class DBTableManager implements RosterDataManager {
      */
     @Override
     public boolean addPlayer(Player player) {
-        String sql = "INSERT INTO Players(playerName, position, playerNum, playerActivity) VALUES(?, ?, ?, ?)";
+        String sql = "INSERT INTO Players(playerName, position, playerNum, playerActivity, classYear) VALUES(?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, player.getName());
             pstmt.setString(2, player.getPosition());
             pstmt.setInt(3, player.getNumber());
             pstmt.setInt(4, player.isPlaying() ? 1 : 0);
+            pstmt.setInt(5, player.getClassYear());
             pstmt.executeUpdate();
             return true;
         } catch (SQLException e) {
@@ -91,7 +95,8 @@ public class DBTableManager implements RosterDataManager {
                 Player player = new Player(
                         rs.getString("playerName"),
                         rs.getString("position"),
-                        rs.getInt("playerNum")
+                        rs.getInt("playerNum"),
+                        rs.getInt("classYear")
                 );
                 player.setID(rs.getInt("id"));
                 player.setPlaying(rs.getInt("playerActivity") == 1);
@@ -112,16 +117,18 @@ public class DBTableManager implements RosterDataManager {
      * @param position the new position of the player
      * @param playerNumber the new player number
      * @param isActive the new activity status of the player
+     * @param classYear the new class year of the player
      */
     @Override
-    public void updatePlayer(int ID, String name, String position, int playerNumber, boolean isActive) {
-        String sql = "UPDATE Players SET playerName = ?, position = ?, playerNum = ?, playerActivity = ? WHERE id = ?";
+    public void updatePlayer(int ID, String name, String position, int playerNumber, boolean isActive, int classYear) {
+        String sql = "UPDATE Players SET playerName = ?, position = ?, playerNum = ?, playerActivity = ?, classYear = ? WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, name);
             pstmt.setString(2, position);
             pstmt.setInt(3, playerNumber);
             pstmt.setInt(4, isActive ? 1 : 0);
-            pstmt.setInt(5, ID);
+            pstmt.setInt(5, classYear);
+            pstmt.setInt(6, ID);
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
                 System.out.println("Player updated successfully.");
@@ -165,11 +172,12 @@ public class DBTableManager implements RosterDataManager {
      * @return the ID of the player if found, -1 otherwise
      */
     public int getPlayerID(Player player) {
-        String sql = "SELECT id FROM Players WHERE playerName = ? AND position = ? AND playerNum = ?";
+        String sql = "SELECT id FROM Players WHERE playerName = ? AND position = ? AND playerNum = ? AND classYear = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, player.getName());
             pstmt.setString(2, player.getPosition());
             pstmt.setInt(3, player.getNumber());
+            pstmt.setInt(4, player.getClassYear());
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
                 return rs.getInt("id");
@@ -260,29 +268,62 @@ public class DBTableManager implements RosterDataManager {
     @Override
     public List<Session> getPlayerStats(int playerID) {
         List<Session> sessions = new ArrayList<>();
+        List<Integer> sessionIDs = new ArrayList<>();
         Player player = getPlayer(playerID);
         if (player == null){
             return null;
         }
         
-        String sql = "SELECT * FROM PlayerStatistics WHERE playerID = ?";
-
-        // get the player stats from the database
+        String sql = "SELECT sessionID FROM PlayerStatistics WHERE playerID = ?";
+        // get the session IDs for the player
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, playerID);
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
-                Session session = getSession(rs.getInt("sessionID"));
-                if(session == null) return null;
-                HashMap<Player, ArrayList<PlayerStat>> stats = new HashMap<>();
-                stats.put(player, session.getPlayerStats().get(player));
-                sessions.add(new Session(session.getDate(),
-                        session.getID(), session.getDrillNum(), stats));
+                sessionIDs.add(rs.getInt("sessionID"));
             }
         } catch (SQLException e) {
             System.err.println(e.getMessage());
             return null;
         }
+
+        //construct sessions
+        sql = "SELECT * FROM Sessions WHERE id = ?";
+        for(int id : sessionIDs){
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, id);
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    Session session = new Session(rs.getDate("sessionDate").toLocalDate(),
+                            rs.getInt("id"),
+                            rs.getInt("drillNum"));
+                    sessions.add(session);
+                }
+            } catch (SQLException e) {
+                System.err.println(e.getMessage());
+                return null;
+            }
+        }
+
+        //get stats for each session
+        sql = "SELECT * FROM PlayerStatistics WHERE sessionID = ? AND playerID = ?";
+        for(Session session : sessions){
+            try(PreparedStatement pstmt = conn.prepareStatement(sql)){
+                pstmt.setInt(1, session.getID());
+                pstmt.setInt(2, playerID);
+                ResultSet rs = pstmt.executeQuery();
+                while(rs.next()){
+                    PlayerStat stat = new PlayerStat(rs.getString("statType"),
+                            rs.getInt("made"),
+                            rs.getInt("attempted"));
+                    session.addStat(player, stat);
+                }
+            } catch (SQLException e) {
+                System.err.println(e.getMessage());
+                return null;
+            }
+        }
+
 
         return sessions;
     }
@@ -323,10 +364,9 @@ public class DBTableManager implements RosterDataManager {
             pstmt.setInt(1, sessionID);
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
-                players.add(getPlayer(rs.getInt("playerID")));
-                Player player = players.getLast();
-                System.out.println(player.getName());
+                Player player = getPlayer(rs.getInt("playerID"));
                 if(player == null) return null;
+                players.add(player);
 
                 PlayerStat stat = new PlayerStat(rs.getString("statType"),
                         rs.getInt("made"),
@@ -353,7 +393,6 @@ public class DBTableManager implements RosterDataManager {
         String sql = "SELECT id FROM Sessions";
         try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                System.out.println(rs.getInt("id"));
                 sessionIds.add(rs.getInt("id"));
             }
         } catch (SQLException e) {

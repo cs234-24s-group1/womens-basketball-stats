@@ -32,6 +32,10 @@ public class PlayerStat {
         return attempted == 0 ? 0 : (double) made / attempted;
     }
 
+    public String getFormattedPercentage() {
+        return String.format("%.1f%%", getPercentage() * 100);
+    }
+
     public int getMade() {
         return made;
     }
@@ -42,5 +46,14 @@ public class PlayerStat {
 
     public String getStatType() {
         return statType;
+    }
+
+    @Override
+    public String toString() {
+        return "PlayerStat{" +
+                "statType='" + statType + '\'' +
+                ", made=" + made +
+                ", attempted=" + attempted +
+                '}';
     }
 }

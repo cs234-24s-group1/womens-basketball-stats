@@ -1,17 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Add Basketball Player</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="styles.css">
-</head>
-<body>
-    <header>
-        <h1><a href="/">Moravian University Women's Basketball</a></h1>
-        <h2>Add Basketball Player</h2>
-    </header>
+@import com.mu_bball_stats.web.Page
 
+@param Page page
+
+@template.page(
+    page = page,
+    content = @`
+    <h2>Add Player</h2>
     <form id="playerForm">
         <label for="name">Name:</label>
         <input type="text" id="name" name="name" required><br><br>
@@ -33,7 +27,7 @@
         
         <input type="submit" value="Add Player">
     </form>
-    
+
     <script>
         document.getElementById("playerForm").addEventListener("submit", function(event) {
             event.preventDefault();
@@ -83,5 +77,5 @@
             });
         });
     </script>
-</body>
-</html>
+    `
+)
